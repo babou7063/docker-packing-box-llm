@@ -2,7 +2,7 @@
 import numpy as np
 from sklearn.base import BaseEstimator
 
-from pboxllm import LLMBackend, FeatureFormatter, PromptStrategy
+from pboxllm import LLMBackend, FeatureFormatter, PromptStrategy, proba_from_top_logprobs
 
 
 __all__ = ["LLMClassifier"]
@@ -21,6 +21,7 @@ class LLMClassifier(BaseEstimator):
     """
 
     classes_ = np.array([0, 1])
+    _few_shot_seed = 42
     _required_params = (
         "model_file",
         "model_repo",
@@ -40,6 +41,8 @@ class LLMClassifier(BaseEstimator):
         n_ctx=None,
         n_threads=None,
         max_tokens=None,
+        few_shot_mode=False,
+        few_shot_count=4,
     ):
         self.model_file = model_file
         self.model_repo = model_repo
@@ -48,6 +51,8 @@ class LLMClassifier(BaseEstimator):
         self.n_ctx = n_ctx
         self.n_threads = n_threads
         self.max_tokens = max_tokens
+        self.few_shot_mode = few_shot_mode
+        self.few_shot_count = few_shot_count
 
     def __sklearn_is_fitted__(self):
         return hasattr(self, "backend_")
@@ -63,6 +68,7 @@ class LLMClassifier(BaseEstimator):
         self.backend_ = LLMBackend(self.model_file, self.model_repo, self.n_ctx, self.n_threads)
         self.formatter_ = FeatureFormatter(self.feature_names)
         self.strategy_ = PromptStrategy(self.prompt_file)
+        self.few_shot_examples_ = self._build_few_shot_examples(X, y)
         self.backend_.load()
         return self
 
@@ -73,11 +79,63 @@ class LLMClassifier(BaseEstimator):
         for i in range(len(X)):
             row = X.iloc[i] if hasattr(X, "iloc") else X[i]
             text = self.formatter_.format(row)
-            prompt = self.strategy_.build_prompt(text)
+            prompt = self.strategy_.build_prompt(text, few_shot_examples=self.few_shot_examples_)
             raw = self.backend_.generate(prompt, max_tokens=self.max_tokens)
             results.append(self.strategy_.parse(raw))
         return np.array(results, dtype=int)
 
     def predict_proba(self, X):
-        preds = self.predict(X)
-        return np.vstack([1 - preds, preds]).T.astype(float)
+        if not hasattr(self, "backend_"):
+            raise RuntimeError("LLMClassifier must be fitted before calling predict_proba.")
+        probas = []
+        for i in range(len(X)):
+            row = X.iloc[i] if hasattr(X, "iloc") else X[i]
+            text = self.formatter_.format(row)
+            prompt = self.strategy_.build_prompt(text, few_shot_examples=self.few_shot_examples_)
+            out = self.backend_.generate_with_logprobs(prompt, max_tokens=self.max_tokens)
+            proba = proba_from_top_logprobs(out.get("top_logprobs"))
+            if proba is None:
+                pred = self.strategy_.parse(out.get("text", ""))
+                if pred == 1:
+                    proba = np.array([0.0, 1.0], dtype=float)
+                elif pred == 0:
+                    proba = np.array([1.0, 0.0], dtype=float)
+                else:
+                    proba = np.array([0.5, 0.5], dtype=float)
+            probas.append(proba)
+        return np.vstack(probas)
+
+    def _build_few_shot_examples(self, X, y):
+        if not self.few_shot_mode:
+            return []
+        if y is None:
+            return []
+        labels = np.asarray(y)
+        if labels.size == 0:
+            return []
+        total = int(self.few_shot_count or 0)
+        if total <= 0:
+            return []
+        rng = np.random.RandomState(self._few_shot_seed)
+        packed_idx = np.where(labels == 1)[0]
+        not_packed_idx = np.where(labels == 0)[0]
+        half = max(1, total // 2)
+        selected = []
+        if packed_idx.size:
+            selected.extend(rng.choice(packed_idx, size=min(half, packed_idx.size), replace=False).tolist())
+        if not_packed_idx.size:
+            selected.extend(rng.choice(not_packed_idx, size=min(total - len(selected), not_packed_idx.size), replace=False).tolist())
+        remaining = total - len(selected)
+        if remaining > 0:
+            all_idx = np.arange(labels.size)
+            left = np.setdiff1d(all_idx, np.array(selected, dtype=int), assume_unique=False)
+            if left.size:
+                selected.extend(rng.choice(left, size=min(remaining, left.size), replace=False).tolist())
+        examples = []
+        for idx in selected:
+            row = X.iloc[idx] if hasattr(X, "iloc") else X[idx]
+            examples.append({
+                "features_text": self.formatter_.format(row),
+                "label": int(labels[idx]),
+            })
+        return examples

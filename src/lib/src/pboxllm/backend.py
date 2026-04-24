@@ -81,6 +81,34 @@ class LLMBackend:
         result = self._llm(prompt, max_tokens=max_tokens, temperature=temperature, echo=False)
         return result["choices"][0]["text"].strip()
 
+    def generate_with_logprobs(self, prompt, max_tokens=64, temperature=0.0, logprobs=10):
+        """Run inference and return generated text plus first-token logprobs when available.
+
+        Returns a dictionary with:
+        - ``text``: generated text (str)
+        - ``top_logprobs``: mapping token->logprob for the first generated token, or ``None``
+        """
+        if self._llm is None:
+            self.load()
+        try:
+            result = self._llm(
+                prompt,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                echo=False,
+                logprobs=logprobs,
+            )
+        except TypeError:
+            result = self._llm(prompt, max_tokens=max_tokens, temperature=temperature, echo=False)
+        choice = result["choices"][0]
+        top_logprobs = None
+        logprobs_data = choice.get("logprobs")
+        if isinstance(logprobs_data, dict):
+            top = logprobs_data.get("top_logprobs")
+            if isinstance(top, list) and len(top) > 0 and isinstance(top[0], dict):
+                top_logprobs = top[0]
+        return {"text": choice["text"].strip(), "top_logprobs": top_logprobs}
+
     # ------------------------------------------------------------------
     # Model management
     # ------------------------------------------------------------------

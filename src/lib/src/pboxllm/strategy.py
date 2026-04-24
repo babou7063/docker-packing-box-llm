@@ -50,7 +50,7 @@ class PromptStrategy:
     # Public interface
     # ------------------------------------------------------------------
 
-    def build_prompt(self, features_text):
+    def build_prompt(self, features_text, few_shot_examples=None):
         """Fill the prompt template with the formatted feature block.
 
         Parameters
@@ -63,7 +63,10 @@ class PromptStrategy:
         str
             The full prompt ready to be sent to the LLM backend.
         """
-        return self._load_template().format(features=features_text)
+        return self._render_template(
+            features_text=features_text,
+            few_shot_examples=few_shot_examples or [],
+        )
 
     def parse(self, response):
         """Parse the LLM raw response into a binary label.
@@ -104,6 +107,41 @@ class PromptStrategy:
             )
         self._template = path.read_text(encoding="utf-8")
         return self._template
+
+    def _render_template(self, features_text, few_shot_examples):
+        template = self._load_template()
+        mapping = {"features": features_text}
+        if "{few_shot_examples}" in template:
+            mapping["few_shot_examples"] = self._format_few_shot_examples(few_shot_examples)
+        return template.format(**mapping)
+
+    def _format_few_shot_examples(self, few_shot_examples):
+        if not few_shot_examples:
+            return ""
+        lines = []
+        for i, example in enumerate(few_shot_examples, start=1):
+            label = self._normalize_label(example.get("label", "unknown"))
+            features_text = example.get("features_text", "")
+            lines.append(
+                "Example {i}:\nFeatures:\n{features}\nLabel: {label}".format(
+                    i=i,
+                    features=features_text,
+                    label=label,
+                )
+            )
+        block = "\n\n".join(lines)
+        return "\nHere are some examples to guide your reasoning:\n\n{}\n".format(block)
+
+    @staticmethod
+    def _normalize_label(label):
+        if label in [1, "1", True]:
+            return "packed"
+        if label in [0, "0", False]:
+            return "not-packed"
+        text = str(label).strip().lower()
+        if text in ["packed", "not-packed", "not packed"]:
+            return text.replace(" ", "-")
+        return "unknown"
 
     def _bootstrap_default_prompt(self):
         self.prompt_dir.mkdir(parents=True, exist_ok=True)
