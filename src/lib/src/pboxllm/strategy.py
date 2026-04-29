@@ -40,10 +40,19 @@ class PromptStrategy:
         Contents of the loaded prompt file (populated on first use).
     """
 
-    def __init__(self, prompt_file, prompt_dir=_PROMPT_CACHE_DIR, default_prompt_dir=_DEFAULT_PROMPT_DIR):
+    def __init__(
+        self,
+        prompt_file,
+        prompt_dir=_PROMPT_CACHE_DIR,
+        default_prompt_dir=_DEFAULT_PROMPT_DIR,
+        packed_label="packed",
+        not_packed_label="not-packed",
+    ):
         self.prompt_file = prompt_file
         self.prompt_dir = prompt_dir
         self.default_prompt_dir = default_prompt_dir
+        self.packed_label = str(packed_label).strip().lower()
+        self.not_packed_label = str(not_packed_label).strip().lower()
         self._template = None
 
     # ------------------------------------------------------------------
@@ -85,6 +94,35 @@ class PromptStrategy:
         int
             ``1`` if packed, ``0`` if not-packed, ``-1`` if uncertain/unrecognised.
         """
+        response = str(response or "")
+        resp_lower = response.lower().strip()
+
+        # 1) Preferred path: parse explicit "P_PACKED: <p>" outputs.
+        # This is required for prompts coming from the experiments pipeline
+        # (e.g., zero_shot/verbalized_probability.txt).
+        m = re.search(r"\bP_PACKED\s*:\s*([0-9]*\.?[0-9]+)\b", resp_lower, re.IGNORECASE)
+        if m:
+            try:
+                p = float(m.group(1))
+                if p >= 0.5:
+                    return 1
+                if p < 0.5:
+                    return 0
+            except ValueError:
+                pass
+
+        # 2) Strict token match first (best for single-token prompts).
+        token = resp_lower.split()
+        token0 = token[0].strip().lower() if token else ""
+        if token0:
+            if token0 == self.not_packed_label:
+                return 0
+            if token0 == self.packed_label:
+                return 1
+
+        # 3) Fallback keyword search.
+        # Note: keep _NO before _YES so "no"/"false"/"0" map to not-packed,
+        # but ambiguous outputs are still handled by the exact-token path above.
         if _NO.search(response):
             return 0
         if _YES.search(response):

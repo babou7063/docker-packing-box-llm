@@ -41,6 +41,11 @@ class LLMClassifier(BaseEstimator):
         n_ctx=None,
         n_threads=None,
         max_tokens=None,
+        temperature=0.0,
+        top_p=1.0,
+        packed_label="packed",
+        not_packed_label="not-packed",
+        representation_style="flat",
         few_shot_mode=False,
         few_shot_count=4,
     ):
@@ -51,6 +56,11 @@ class LLMClassifier(BaseEstimator):
         self.n_ctx = n_ctx
         self.n_threads = n_threads
         self.max_tokens = max_tokens
+        self.temperature = temperature
+        self.top_p = top_p
+        self.packed_label = packed_label
+        self.not_packed_label = not_packed_label
+        self.representation_style = representation_style
         self.few_shot_mode = few_shot_mode
         self.few_shot_count = few_shot_count
 
@@ -66,8 +76,12 @@ class LLMClassifier(BaseEstimator):
                 + ". Configure them in algorithms.yml (LLM category)."
             )
         self.backend_ = LLMBackend(self.model_file, self.model_repo, self.n_ctx, self.n_threads)
-        self.formatter_ = FeatureFormatter(self.feature_names)
-        self.strategy_ = PromptStrategy(self.prompt_file)
+        self.formatter_ = FeatureFormatter(self.feature_names, representation_style=self.representation_style)
+        self.strategy_ = PromptStrategy(
+            self.prompt_file,
+            packed_label=self.packed_label,
+            not_packed_label=self.not_packed_label,
+        )
         self.few_shot_examples_ = self._build_few_shot_examples(X, y)
         self.backend_.load()
         return self
@@ -80,7 +94,22 @@ class LLMClassifier(BaseEstimator):
             row = X.iloc[i] if hasattr(X, "iloc") else X[i]
             text = self.formatter_.format(row)
             prompt = self.strategy_.build_prompt(text, few_shot_examples=self.few_shot_examples_)
-            raw = self.backend_.generate(prompt, max_tokens=self.max_tokens)
+            if i == 0:
+                print("\n===== DEBUG PROMPT (first sample) =====\n")
+                print(prompt)
+                print("\n===== END DEBUG PROMPT =====\n")
+            raw = self.backend_.generate(
+                prompt,
+                max_tokens=self.max_tokens,
+                temperature=self.temperature,
+                top_p=self.top_p,
+            )
+            if i == 0:
+                print("\n===== DEBUG RAW LLM RESPONSE (first sample) =====\n")
+                print(raw)
+                print("\n===== DEBUG RAW LLM RESPONSE REPR (first sample) =====\n")
+                print(repr(raw))
+                print("\n===== END DEBUG RAW LLM RESPONSE =====\n")
             results.append(self.strategy_.parse(raw))
         return np.array(results, dtype=int)
 
@@ -92,10 +121,38 @@ class LLMClassifier(BaseEstimator):
             row = X.iloc[i] if hasattr(X, "iloc") else X[i]
             text = self.formatter_.format(row)
             prompt = self.strategy_.build_prompt(text, few_shot_examples=self.few_shot_examples_)
-            out = self.backend_.generate_with_logprobs(prompt, max_tokens=self.max_tokens)
-            proba = proba_from_top_logprobs(out.get("top_logprobs"))
-            if proba is None:
-                pred = self.strategy_.parse(out.get("text", ""))
+            try:
+                out = self.backend_.generate_with_logprobs(
+                    prompt,
+                    max_tokens=self.max_tokens,
+                    temperature=self.temperature,
+                    top_p=self.top_p,
+                )
+                if i == 0:
+                    print("\n===== DEBUG RAW LLM RESPONSE PROBA PATH (first sample) =====\n")
+                    print(out.get("text", ""))
+                    print("\n===== DEBUG RAW LLM RESPONSE PROBA REPR (first sample) =====\n")
+                    print(repr(out.get("text", "")))
+                    print("\n===== END DEBUG RAW LLM RESPONSE PROBA PATH =====\n")
+                proba = proba_from_top_logprobs(out.get("top_logprobs"))
+                if proba is None:
+                    pred = self.strategy_.parse(out.get("text", ""))
+                    if pred == 1:
+                        proba = np.array([0.0, 1.0], dtype=float)
+                    elif pred == 0:
+                        proba = np.array([1.0, 0.0], dtype=float)
+                    else:
+                        proba = np.array([0.5, 0.5], dtype=float)
+            except ValueError:
+                # Some GGUF builds don't expose logprobs (logits_all=False).
+                # Fallback: generate plain text and map it to packedness.
+                raw = self.backend_.generate(
+                    prompt,
+                    max_tokens=self.max_tokens,
+                    temperature=self.temperature,
+                    top_p=self.top_p,
+                )
+                pred = self.strategy_.parse(raw)
                 if pred == 1:
                     proba = np.array([0.0, 1.0], dtype=float)
                 elif pred == 0:

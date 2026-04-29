@@ -57,7 +57,7 @@ class LLMBackend:
         from llama_cpp import Llama
         self._llm = Llama(model_path=str(self.model_path_), n_ctx=self.n_ctx, n_threads=self.n_threads, verbose=False)
 
-    def generate(self, prompt, max_tokens=64, temperature=0.0):
+    def generate(self, prompt, max_tokens=64, temperature=0.0, top_p=1.0):
         """Run inference and return the raw generated text.
 
         Parameters
@@ -78,10 +78,16 @@ class LLMBackend:
         """
         if self._llm is None:
             self.load()
-        result = self._llm(prompt, max_tokens=max_tokens, temperature=temperature, echo=False)
+        result = self._llm(
+            prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            echo=False,
+        )
         return result["choices"][0]["text"].strip()
 
-    def generate_with_logprobs(self, prompt, max_tokens=64, temperature=0.0, logprobs=10):
+    def generate_with_logprobs(self, prompt, max_tokens=64, temperature=0.0, top_p=1.0, logprobs=10):
         """Run inference and return generated text plus first-token logprobs when available.
 
         Returns a dictionary with:
@@ -95,11 +101,22 @@ class LLMBackend:
                 prompt,
                 max_tokens=max_tokens,
                 temperature=temperature,
+                top_p=top_p,
                 echo=False,
                 logprobs=logprobs,
             )
-        except TypeError:
-            result = self._llm(prompt, max_tokens=max_tokens, temperature=temperature, echo=False)
+        except (TypeError, ValueError) as exc:
+            # Some llama.cpp builds/models do not support logprobs unless
+            # logits_all was enabled at model creation time.
+            if isinstance(exc, ValueError) and "logprobs is not supported" not in str(exc):
+                raise
+            result = self._llm(
+                prompt,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                echo=False,
+            )
         choice = result["choices"][0]
         top_logprobs = None
         logprobs_data = choice.get("logprobs")
