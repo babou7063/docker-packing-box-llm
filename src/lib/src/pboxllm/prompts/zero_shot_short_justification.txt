@@ -1,0 +1,18 @@
+You are analyzing extracted static features from a Windows PE executable.
+
+Determine whether the executable is packed.
+Do not rely on entropy alone. Use the combined static evidence.
+
+PE features:
+{features}
+
+Give exactly three short evidence lines:
+- strongest signal for packing or against packing
+- second strongest signal
+- main contradiction or uncertainty in the evidence
+
+Then output the final verdict.
+
+Final answer must be exactly one label and nothing else:
+packed
+not-packed

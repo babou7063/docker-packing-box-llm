@@ -1,0 +1,12 @@
+Task: binary packedness classification for a PE sample.
+
+Use only the PE evidence below.
+Do not rely on entropy alone.
+
+Class mapping:
+1 = packed
+0 = not-packed
+
+Output exactly one character: 0 or 1.
+
+{features}

@@ -38,6 +38,27 @@ is_entropy_greater_than_6.801:
     All: entropy > 6.801
   source: bintropy
 
+# ----------------------------------------------- STRINGS-RELATED -----------------------------------------------------
+number_strings:
+  description: Number of printable strings found in the executable
+  result:
+    All: len(binary['strings'])
+
+number_urls:
+  description: Number of URL-like strings found in the executable
+  result:
+    All: len(binary['urls'])
+
+average_string_length:
+  description: Average length of printable strings
+  result:
+    All: sum(map(len, binary['strings'])) / (len(binary['strings']) or 1)
+
+max_string_length:
+  description: Maximum printable string length
+  result:
+    All: max([0] + list(map(len, binary['strings'])))
+
 # ---------------------------------------------------- HEADER-BASED ----------------------------------------------------
 base_of_code:
   description: Base of Code

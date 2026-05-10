@@ -1,0 +1,19 @@
+You are analyzing extracted static features from a Windows PE executable.
+
+Determine whether the executable is packed.
+Do not rely on entropy alone. Use a short plan before deciding.
+
+PE features:
+{features}
+
+First, write a brief plan with three checks:
+- entropy and section entropy pattern
+- imports and loader indicators
+- structural anomalies in sections or permissions
+
+Then apply the plan step by step.
+Then give the final verdict.
+
+Final answer must be exactly one label and nothing else:
+packed
+not-packed

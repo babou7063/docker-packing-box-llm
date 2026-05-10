@@ -165,8 +165,11 @@ def __init_pe():
             # manifest
             if not self.has_resources or not any(r.name == "MANIFEST" for r in self.resources.childs):
                 score -= .05
-            # privileges
-            if "requireAdministrator" in getattr(self.resources_manager, "manifest", ""):
+            # privileges (LIEF may expose manifest as str or bytes)
+            _man = getattr(self.resources_manager, "manifest", "") or ""
+            if isinstance(_man, bytes):
+                _man = _man.decode("utf-8", errors="ignore")
+            if "requireAdministrator" in _man:
                 score -= .05
             # signature
             if not self.has_signatures:

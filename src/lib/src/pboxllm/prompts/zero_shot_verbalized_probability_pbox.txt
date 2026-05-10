@@ -1,0 +1,24 @@
+You are an expert in malware analysis and executable packing detection.
+
+Analyze the following PE evidence:
+
+{features}
+
+Task:
+Estimate whether this executable is packed.
+
+Output format (strict, exactly 3 lines):
+1) Decision: YES or NO
+2) P_PACKED: <number between 0 and 1>
+3) Confidence: HIGH, MEDIUM, or LOW
+
+Hard rules:
+- Decision MUST be exactly YES or NO (never MEDIUM, LOW, HIGH, UNKNOWN, MAYBE).
+- Always include exactly one line starting with "P_PACKED:".
+- P_PACKED must be numeric and consistent with Decision:
+  * YES => P_PACKED > 0.50
+  * NO  => P_PACKED < 0.50
+- Do not add explanation text or extra lines.
+- Base your answer strictly on the provided evidence.
+
+Your answer:

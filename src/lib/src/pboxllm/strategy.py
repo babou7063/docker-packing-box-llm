@@ -47,12 +47,14 @@ class PromptStrategy:
         default_prompt_dir=_DEFAULT_PROMPT_DIR,
         packed_label="packed",
         not_packed_label="not-packed",
+        parse_policy="p_packed_fallback",
     ):
         self.prompt_file = prompt_file
         self.prompt_dir = prompt_dir
         self.default_prompt_dir = default_prompt_dir
         self.packed_label = str(packed_label).strip().lower()
         self.not_packed_label = str(not_packed_label).strip().lower()
+        self.parse_policy = str(parse_policy or "p_packed_fallback").strip().lower()
         self._template = None
 
     # ------------------------------------------------------------------
@@ -78,6 +80,9 @@ class PromptStrategy:
         )
 
     def parse(self, response):
+        return self.parse_with_meta(response)["label"]
+
+    def parse_with_meta(self, response):
         """Parse the LLM raw response into a binary label.
 
         Looks for keywords indicating packed (1) or not-packed (0). 
@@ -96,6 +101,24 @@ class PromptStrategy:
         """
         response = str(response or "")
         resp_lower = response.lower().strip()
+        meta = {
+            "label": -1,
+            "reason": "unparsed",
+            "decision": None,
+            "decision_valid": False,
+            "p_packed": None,
+            "used_fallback": False,
+        }
+        if not resp_lower:
+            meta["reason"] = "empty_response"
+            return meta
+
+        d = re.search(r"\bdecision\s*:\s*([A-Za-z]+)\b", response, re.IGNORECASE)
+        if d:
+            decision = d.group(1).strip().upper()
+            meta["decision"] = decision
+            if decision in ("YES", "NO"):
+                meta["decision_valid"] = True
 
         # 1) Preferred path: parse explicit "P_PACKED: <p>" outputs.
         # This is required for prompts coming from the experiments pipeline
@@ -104,30 +127,54 @@ class PromptStrategy:
         if m:
             try:
                 p = float(m.group(1))
+                meta["p_packed"] = p
+                if self.parse_policy == "strict_unknown" and meta["decision"] is not None and not meta["decision_valid"]:
+                    meta["reason"] = "invalid_decision_token"
+                    return meta
                 if p >= 0.5:
-                    return 1
+                    meta["label"] = 1
+                    meta["reason"] = "p_packed_threshold"
+                    if meta["decision"] == "NO":
+                        meta["used_fallback"] = True
+                    return meta
                 if p < 0.5:
-                    return 0
+                    meta["label"] = 0
+                    meta["reason"] = "p_packed_threshold"
+                    if meta["decision"] == "YES":
+                        meta["used_fallback"] = True
+                    return meta
             except ValueError:
                 pass
+
+        if self.parse_policy == "strict_unknown" and meta["decision"] is not None and not meta["decision_valid"]:
+            meta["reason"] = "invalid_decision_token"
+            return meta
 
         # 2) Strict token match first (best for single-token prompts).
         token = resp_lower.split()
         token0 = token[0].strip().lower() if token else ""
         if token0:
             if token0 == self.not_packed_label:
-                return 0
+                meta["label"] = 0
+                meta["reason"] = "exact_token_not_packed"
+                return meta
             if token0 == self.packed_label:
-                return 1
+                meta["label"] = 1
+                meta["reason"] = "exact_token_packed"
+                return meta
 
         # 3) Fallback keyword search.
         # Note: keep _NO before _YES so "no"/"false"/"0" map to not-packed,
         # but ambiguous outputs are still handled by the exact-token path above.
         if _NO.search(response):
-            return 0
+            meta["label"] = 0
+            meta["reason"] = "keyword_no"
+            return meta
         if _YES.search(response):
-            return 1
-        return -1
+            meta["label"] = 1
+            meta["reason"] = "keyword_yes"
+            return meta
+        return meta
 
     # ------------------------------------------------------------------
     # Template loading

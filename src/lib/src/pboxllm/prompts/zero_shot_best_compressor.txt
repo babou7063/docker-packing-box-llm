@@ -1,0 +1,10 @@
+Task: classify this PE sample as packed or not-packed using only the evidence below.
+
+Rules:
+- Use all provided signals; do not rely on entropy alone.
+- If evidence is mixed, choose the most likely class.
+- Output exactly one word.
+
+{features}
+
+Answer: packed or not-packed

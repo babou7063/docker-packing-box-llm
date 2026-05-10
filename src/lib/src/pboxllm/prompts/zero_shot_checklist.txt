@@ -1,0 +1,19 @@
+You are analyzing extracted static features from a Windows PE executable.
+
+Determine whether the executable is packed.
+Do not rely on entropy alone. Weigh all signals together.
+
+PE features:
+{features}
+
+Evaluate the sample with this checklist:
+1. Entropy pattern: does it support packing, argue against packing, or stay neutral?
+2. Imports and loader behavior: do they support packing, argue against packing, or stay neutral?
+3. Section layout and permissions: do they support packing, argue against packing, or stay neutral?
+4. Other suspicious structural cues: do they support packing, argue against packing, or stay neutral?
+5. Final verdict from the combined evidence.
+
+Keep each checklist item short.
+Final answer must be exactly one label and nothing else:
+packed
+not-packed

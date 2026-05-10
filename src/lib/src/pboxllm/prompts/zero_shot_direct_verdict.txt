@@ -1,0 +1,14 @@
+You are analyzing extracted static features from a Windows PE executable.
+
+Decide whether the executable is packed.
+A packed executable may show several signals together, such as unusual entropy patterns,
+sparse imports, stub-like behavior, suspicious section layout, abnormal permissions,
+or other structural irregularities.
+Do not rely on entropy alone. Low-entropy packed files also exist.
+
+PE features:
+{features}
+
+Output exactly one label and nothing else:
+packed
+not-packed
