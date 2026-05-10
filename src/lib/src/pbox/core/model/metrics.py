@@ -23,6 +23,35 @@ for k in _METRIC_CATEGORIES:
 _N_LAB = 30
 
 
+def _flip_binary_labels(y_true):
+    """Swap 0/1 when MCC sign heuristic triggers; must not use bare generators with ndarray.__call__."""
+    flat = np.asarray(y_true).ravel()
+    flipped = np.array([[1, 0][int(x)] for x in flat])
+    shape = np.asarray(y_true).shape
+    flipped = flipped.reshape(shape)
+    if isinstance(y_true, np.ndarray):
+        return flipped.astype(y_true.dtype, copy=False)
+    if hasattr(y_true, "iloc"):
+        import pandas as pd
+
+        if isinstance(y_true, pd.Series):
+            return pd.Series(flipped.ravel(), index=y_true.index, dtype=y_true.dtype)
+    return type(y_true)(flipped.ravel().tolist())
+
+
+def _flip_proba_column(y_proba):
+    arr = np.asarray(y_proba, dtype=float)
+    flipped = (1.0 - arr).reshape(arr.shape)
+    if isinstance(y_proba, np.ndarray):
+        return flipped.astype(y_proba.dtype, copy=False)
+    if hasattr(y_proba, "iloc"):
+        import pandas as pd
+
+        if isinstance(y_proba, pd.Series):
+            return pd.Series(flipped.ravel(), index=y_proba.index, dtype=float)
+    return type(y_proba)(flipped.ravel().tolist())
+
+
 def _convert_output(f):
     @functools.wraps(f)
     def _wrapper(X, yp, *a, **kw):
@@ -116,13 +145,57 @@ def _skip_if_labels_ignored(f):
     return _wrapper
 
 
+def _metric_cell_to_float(cell):
+    """Parse a metrics table cell (raw float, '64.44%', '12.3ms', '-') for highlight_best."""
+    if cell is None or (isinstance(cell, float) and np.isnan(cell)):
+        return -1.0
+    s = str(cell).strip()
+    if s in ("-", "", "nan"):
+        return -1.0
+    if s.endswith("%"):
+        try:
+            return float(s[:-1].strip())
+        except ValueError:
+            return -1.0
+    if s.endswith("ms"):
+        try:
+            return float(s[:-2].strip())
+        except ValueError:
+            return -1.0
+    try:
+        return float(s)
+    except ValueError:
+        return -1.0
+
+
+def _display_metric_cell(header, cell, formats):
+    """Apply METRIC_DISPLAY formatter to numeric cells; keep CSV strings like '63.00%' as-is."""
+    fmt = (formats or {}).get(header)
+    if fmt is None:
+        return cell if cell is not None else ""
+    if cell == "-" or (isinstance(cell, str) and cell.strip() == "-"):
+        return "-"
+    if isinstance(cell, str):
+        st = cell.strip()
+        if "%" in st or st.endswith("ms"):
+            return cell
+    try:
+        if isinstance(cell, (int, float, np.integer, np.floating)) and not isinstance(cell, bool):
+            x = float(cell)
+        else:
+            x = float(str(cell).strip())
+        return fmt(x)
+    except (TypeError, ValueError):
+        return str(cell)
+
+
 def highlight_best(data, headers=None, exclude_cols=[0, -1], formats=_METRIC_DISPLAYS):
     """ Highlight the highest values in the given table. """
     if len(data[0]) != len(headers):
         raise ValueError("headers and row lengths mismatch")
     ndata, exc_cols = [], [x % len(headers) for x in exclude_cols]
     maxs = [None if i in exc_cols else 0 for i, _ in enumerate(headers)]
-    fl = lambda f: -1. if f == "-" else float(f)
+    fl = _metric_cell_to_float
     # search for best values
     for d in data:
         for i, v in enumerate(d):
@@ -131,8 +204,14 @@ def highlight_best(data, headers=None, exclude_cols=[0, -1], formats=_METRIC_DIS
             maxs[i] = max(maxs[i], fl(v))
     # reformat the table, setting bold text for best values
     for d in data:
-        ndata.append([bold((formats or {}).get(k, lambda x: x)(v)) if maxs[i] and fl(v) == maxs[i] else \
-                     (formats or {}).get(k, lambda x: x)(v) for i, (k, v) in enumerate(zip(headers, d))])
+        row = []
+        for i, (k, v) in enumerate(zip(headers, d)):
+            disp = _display_metric_cell(k, v, formats)
+            if maxs[i] is not None and fl(v) > -1 and fl(v) == maxs[i]:
+                row.append(bold(disp))
+            else:
+                row.append(disp)
+        ndata.append(row)
     return ndata
 
 
@@ -164,9 +243,9 @@ def classification_metrics(X, y_pred, y_true=None, y_proba=None, labels=None, sa
     mcc = skm.matthews_corrcoef(yt, yp)
     if mcc < 0 and set(x for x in yt if x != -1) == {0, 1}:
         if y_true is not None:
-            y_true = y_true.__class__([1, 0][x] for x in y_true)
+            y_true = _flip_binary_labels(y_true)
         if y_proba is not None:
-            y_proba = y_proba.__class__(1 - x for x in y_proba)
+            y_proba = _flip_proba_column(y_proba)
         yt, yp, ypr, d = _map_values_to_integers(y_true, y_pred, y_proba, **kw)
         mcc = skm.matthews_corrcoef(yt, yp)
     if labels is None and d is not None:

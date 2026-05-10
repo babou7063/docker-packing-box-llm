@@ -40,11 +40,19 @@ def _df2npa(X):
     return array(X)
 
 
-def make_pipeline(pipeline, preprocessors, logger=null_logger):
+def _identity_df(X):
+    """Identity transformer preserving pandas DataFrame objects."""
+    return X
+
+
+def make_pipeline(pipeline, preprocessors, logger=null_logger, keep_dataframe=False):
     """ Make the ML pipeline by chaining the input preprocessors. """
-    if len(preprocessors) == 0:  # create the Pipeline instance with the list of steps
+    if len(preprocessors) == 0 and not keep_dataframe:  # create the Pipeline instance with the list of steps
         from sklearn.preprocessing import FunctionTransformer
         pipeline.append(("pandas.DataFrame -> numpy.array", FunctionTransformer(_df2npa)))
+    elif len(preprocessors) == 0 and keep_dataframe:
+        from sklearn.preprocessing import FunctionTransformer
+        pipeline.append(("Identity (keep DataFrame)", FunctionTransformer(_identity_df)))
     for p in preprocessors:
         p, params = PREPROCESSORS.get(p, p), {}
         if isinstance(p, tuple):

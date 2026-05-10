@@ -129,8 +129,17 @@ class BaseModel(Entity):
             self._target = ds._data.loc[:, ds._data.columns == "label"]
         # case 2: normal dataset (features shall still be computed)
         elif isinstance(ds, Dataset):
-            __parse(ds.files.listdir(is_exe), False)
-            self._target = ds._data.loc[:, ds._data.columns == "label"]
+            # Align labels with rows actually produced by __parse (same order / count as self._data).
+            # Do not take ds._data["label"] wholesale: listdir may skip a missing file while data.csv still has 100 rows.
+            merged = dict(labels)
+            if "hash" in ds._data.columns:
+                label_series = ds._data["label"] if "label" in ds._data.columns else None
+                if label_series is not None:
+                    for h, lab in zip(ds._data["hash"], label_series):
+                        merged[h] = lab
+                        merged[str(h)] = lab
+            labels = merged
+            __parse(ds.files.listdir(is_exe), True)
         # case 3: CSV file
         elif ds.extension == ".csv":
             l.info("Loading features...")
@@ -193,7 +202,8 @@ class BaseModel(Entity):
         # create the pipeline if it does not exist (i.e. while training)
         if not data_only:
             l.info("Making pipeline...")
-            make_pipeline(self.pipeline, preprocessor, self.logger)
+            keep_dataframe = classifier.__class__.__name__ == "LLMClassifier"
+            make_pipeline(self.pipeline, preprocessor, self.logger, keep_dataframe=keep_dataframe)
         # if only data is to be processed (i.e. while testing), stop here, the rest is for training the model
         else:
             return True
@@ -413,7 +423,7 @@ class Model(BaseModel):
             data = []
             for h in m._performance.columns:
                 if h not in perf.columns:
-                    perf.columns[h] = np.nan
+                    perf[h] = np.nan
             for _, row in m._performance.iterrows():
                 row = row.to_dict()
                 d = row['Dataset']

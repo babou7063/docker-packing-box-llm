@@ -200,6 +200,8 @@ LLM:
       static:
         model_file:   mistral-7b-instruct-v0.2.Q4_K_M.gguf
         model_repo:   TheBloke/Mistral-7B-Instruct-v0.2-GGUF
+        prompt_file:  zero_shot_best_compressor.txt
+        representation_style: flat
         feature_names:
           - entropy
           - entropy_code_section
@@ -208,7 +210,559 @@ LLM:
         n_threads:    4
         max_tokens:   64
       cv:
-        prompt_file: ['zero_shot_binary.txt', 'few_shot_binary.txt']
+        few_shot_mode:  [false, true]
+        few_shot_count: [2, 4, 6]
+
+  LLM-R1-Structured-PE:
+    base:        !!python/name:pbox.core.model.algorithm.llm.LLMClassifier
+    description: "R1 - Structured semantic PE summary (zero-shot)"
+    multiclass:  false
+    preprocessors: []
+    parameters:
+      static:
+        model_file:   mistral-7b-instruct-v0.2.Q4_K_M.gguf
+        model_repo:   TheBloke/Mistral-7B-Instruct-v0.2-GGUF
+        prompt_file:  zero_shot_verbalized_probability_pbox.txt
+        representation_style: structured_semantic_pe
+        few_shot_mode: false
+        few_shot_count: 0
+        trace_outputs: false
+        trace_dir: /home/user/.packing-box/cache/llm-traces
+        parse_policy: strict_unknown
+        on_backend_error: unknown
+        feature_names:
+          - entropy
+          - entropy_code_section
+          - entropy_data_section
+          - entropy_pe_header
+          - entropy_section_with_ep
+          - number_sections_vsize>dsize
+          - number_non_standard_sections
+          - number_standard_sections
+          - number_rwx_sections
+          - number_wx_sections
+          - number_x_sections
+          - size_of_headers
+          - size_of_image
+          - number_dll_imported
+          - number_func_imported_in_idt
+          - number_malicious_api_imported
+          - ratio_malicious_api_imported
+          - is_ep_not_in_code_section
+          - is_ep_not_in_standard_section
+          - number_strings
+          - number_urls
+          - average_string_length
+          - max_string_length
+        temperature:  0.0
+        top_p:        1.0
+        n_ctx:        3072
+        n_threads:    4
+        max_tokens:   64
+
+  LLM-R2-Compact-PE:
+    base:        !!python/name:pbox.core.model.algorithm.llm.LLMClassifier
+    description: "R2 - Compact PE structural bundle (zero-shot)"
+    multiclass:  false
+    preprocessors: []
+    parameters:
+      static:
+        model_file:   mistral-7b-instruct-v0.2.Q4_K_M.gguf
+        model_repo:   TheBloke/Mistral-7B-Instruct-v0.2-GGUF
+        prompt_file:  zero_shot_verbalized_probability_pbox.txt
+        representation_style: compact_pe_structural
+        few_shot_mode: false
+        few_shot_count: 0
+        trace_outputs: false
+        trace_dir: /home/user/.packing-box/cache/llm-traces
+        parse_policy: strict_unknown
+        on_backend_error: unknown
+        feature_names:
+          - entropy
+          - entropy_code_section
+          - entropy_section_with_ep
+          - number_sections_vsize>dsize
+          - number_rwx_sections
+          - number_non_standard_sections
+          - is_ep_not_in_code_section
+          - number_malicious_api_imported
+          - ratio_malicious_api_imported
+          - number_dll_imported
+          - number_func_imported_in_idt
+          - size_of_headers
+        temperature:  0.0
+        top_p:        1.0
+        n_ctx:        2048
+        n_threads:    4
+        max_tokens:   64
+
+        # Prefer parsed P_PACKED outputs from the prompt template.
+        # This avoids label parsing issues when the model echoes instruction text.
+
+
+  LLM-R2-Compact-PE-Neutral-AB:
+    base:        !!python/name:pbox.core.model.algorithm.llm.LLMClassifier
+    description: "R2 - Compact PE with neutral A/B labels (deterministic)"
+    multiclass:  false
+    preprocessors: []
+    parameters:
+      static:
+        model_file:   mistral-7b-instruct-v0.2.Q4_K_M.gguf
+        model_repo:   TheBloke/Mistral-7B-Instruct-v0.2-GGUF
+        prompt_file:  zero_shot_neutral_ab.txt
+        packed_label: A
+        not_packed_label: B
+        representation_style: compact_pe_structural
+        few_shot_mode: false
+        few_shot_count: 0
+        feature_names:
+          - entropy
+          - entropy_code_section
+          - entropy_section_with_ep
+          - number_sections_vsize>dsize
+          - number_rwx_sections
+          - number_non_standard_sections
+          - is_ep_not_in_code_section
+          - number_malicious_api_imported
+          - ratio_malicious_api_imported
+          - number_dll_imported
+          - number_func_imported_in_idt
+          - size_of_headers
+        temperature:  0.0
+        top_p:        1.0
+        n_ctx:        2048
+        n_threads:    4
+        max_tokens:   2
+
+  LLM-R2-Compact-PE-Neutral-AB-Swapped:
+    base:        !!python/name:pbox.core.model.algorithm.llm.LLMClassifier
+    description: "R2 - Compact PE with swapped A/B mapping (deterministic)"
+    multiclass:  false
+    preprocessors: []
+    parameters:
+      static:
+        model_file:   mistral-7b-instruct-v0.2.Q4_K_M.gguf
+        model_repo:   TheBloke/Mistral-7B-Instruct-v0.2-GGUF
+        prompt_file:  zero_shot_neutral_ab_swapped.txt
+        packed_label: B
+        not_packed_label: A
+        representation_style: compact_pe_structural
+        few_shot_mode: false
+        few_shot_count: 0
+        feature_names:
+          - entropy
+          - entropy_code_section
+          - entropy_section_with_ep
+          - number_sections_vsize>dsize
+          - number_rwx_sections
+          - number_non_standard_sections
+          - is_ep_not_in_code_section
+          - number_malicious_api_imported
+          - ratio_malicious_api_imported
+          - number_dll_imported
+          - number_func_imported_in_idt
+          - size_of_headers
+        temperature:  0.0
+        top_p:        1.0
+        n_ctx:        2048
+        n_threads:    4
+        max_tokens:   2
+
+  LLM-R2-Compact-PE-Neutral-01:
+    base:        !!python/name:pbox.core.model.algorithm.llm.LLMClassifier
+    description: "R2 - Compact PE with neutral 0/1 labels (deterministic)"
+    multiclass:  false
+    preprocessors: []
+    parameters:
+      static:
+        model_file:   mistral-7b-instruct-v0.2.Q4_K_M.gguf
+        model_repo:   TheBloke/Mistral-7B-Instruct-v0.2-GGUF
+        prompt_file:  zero_shot_neutral_01.txt
+        packed_label: "1"
+        not_packed_label: "0"
+        representation_style: compact_pe_structural
+        few_shot_mode: false
+        few_shot_count: 0
+        feature_names:
+          - entropy
+          - entropy_code_section
+          - entropy_section_with_ep
+          - number_sections_vsize>dsize
+          - number_rwx_sections
+          - number_non_standard_sections
+          - is_ep_not_in_code_section
+          - number_malicious_api_imported
+          - ratio_malicious_api_imported
+          - number_dll_imported
+          - number_func_imported_in_idt
+          - size_of_headers
+        temperature:  0.0
+        top_p:        1.0
+        n_ctx:        2048
+        n_threads:    4
+        max_tokens:   2
+
+  LLM-R2-Compact-PE-Neutral-01-Swapped:
+    base:        !!python/name:pbox.core.model.algorithm.llm.LLMClassifier
+    description: "R2 - Compact PE with swapped 0/1 mapping (deterministic)"
+    multiclass:  false
+    preprocessors: []
+    parameters:
+      static:
+        model_file:   mistral-7b-instruct-v0.2.Q4_K_M.gguf
+        model_repo:   TheBloke/Mistral-7B-Instruct-v0.2-GGUF
+        prompt_file:  zero_shot_neutral_01_swapped.txt
+        packed_label: "0"
+        not_packed_label: "1"
+        representation_style: compact_pe_structural
+        few_shot_mode: false
+        few_shot_count: 0
+        feature_names:
+          - entropy
+          - entropy_code_section
+          - entropy_section_with_ep
+          - number_sections_vsize>dsize
+          - number_rwx_sections
+          - number_non_standard_sections
+          - is_ep_not_in_code_section
+          - number_malicious_api_imported
+          - ratio_malicious_api_imported
+          - number_dll_imported
+          - number_func_imported_in_idt
+          - size_of_headers
+        temperature:  0.0
+        top_p:        1.0
+        n_ctx:        2048
+        n_threads:    4
+        max_tokens:   2
+
+  LLM-R3-Strings-Summary:
+    base:        !!python/name:pbox.core.model.algorithm.llm.LLMClassifier
+    description: "R3 - Strings summary view (zero-shot)"
+    multiclass:  false
+    preprocessors: []
+    parameters:
+      static:
+        model_file:   mistral-7b-instruct-v0.2.Q4_K_M.gguf
+        model_repo:   TheBloke/Mistral-7B-Instruct-v0.2-GGUF
+        prompt_file:  zero_shot_verbalized_probability_pbox.txt
+        representation_style: strings_summary
+        few_shot_mode: false
+        few_shot_count: 0
+        trace_outputs: false
+        trace_dir: /home/user/.packing-box/cache/llm-traces
+        parse_policy: strict_unknown
+        on_backend_error: unknown
+        feature_names:
+          - number_strings
+          - number_urls
+          - average_string_length
+          - max_string_length
+          - number_dll_imported
+          - number_malicious_api_imported
+          - ratio_malicious_api_imported
+          - entropy
+        temperature:  0.0
+        top_p:        1.0
+        n_ctx:        2048
+        n_threads:    4
+        max_tokens:   64
+
+  LLM-Ablation-1-PE-Layout:
+    base:        !!python/name:pbox.core.model.algorithm.llm.LLMClassifier
+    description: "Ablation 1 — PE layout / headers / sections / EP flags only (flat)"
+    multiclass:  false
+    preprocessors: []
+    parameters:
+      static:
+        model_file:   mistral-7b-instruct-v0.2.Q4_K_M.gguf
+        model_repo:   TheBloke/Mistral-7B-Instruct-v0.2-GGUF
+        prompt_file:  zero_shot_verbalized_probability_pbox.txt
+        representation_style: flat
+        few_shot_mode: false
+        few_shot_count: 0
+        trace_outputs: false
+        trace_dir: /home/user/.packing-box/cache/llm-traces
+        parse_policy: strict_unknown
+        on_backend_error: unknown
+        feature_names:
+          - number_sections_vsize>dsize
+          - number_non_standard_sections
+          - number_standard_sections
+          - number_rwx_sections
+          - number_wx_sections
+          - number_x_sections
+          - number_rw_sections
+          - number_rx_sections
+          - number_w_sections
+          - number_sections_size_0
+          - size_of_headers
+          - size_of_image
+          - size_of_code
+          - size_of_initializeddata
+          - size_of_uninitializeddata
+          - section_alignment
+          - image_base
+          - base_of_code
+          - ep_ratio
+          - max_ratio_rdata
+          - min_ratio_rdata
+          - ratio_standard_sections
+          - is_ep_not_in_code_section
+          - is_ep_not_in_standard_section
+          - is_ep_not_in_x_section
+          - is_code_section_not_present
+          - is_code_section_not_x
+          - "is_code_section_90%_of_image_size"
+          - is_x_section_not_code
+          - number_resources
+        temperature:  0.0
+        top_p:        1.0
+        n_ctx:        3072
+        n_threads:    4
+        max_tokens:   64
+
+  LLM-Ablation-2-Import-Surface:
+    base:        !!python/name:pbox.core.model.algorithm.llm.LLMClassifier
+    description: "Ablation 2 — import / IAT surface only (flat)"
+    multiclass:  false
+    preprocessors: []
+    parameters:
+      static:
+        model_file:   mistral-7b-instruct-v0.2.Q4_K_M.gguf
+        model_repo:   TheBloke/Mistral-7B-Instruct-v0.2-GGUF
+        prompt_file:  zero_shot_verbalized_probability_pbox.txt
+        representation_style: flat
+        few_shot_mode: false
+        few_shot_count: 0
+        trace_outputs: false
+        trace_dir: /home/user/.packing-box/cache/llm-traces
+        parse_policy: strict_unknown
+        on_backend_error: unknown
+        feature_names:
+          - number_dll_imported
+          - number_func_imported_in_idt
+          - number_addresses_in_iat
+          - number_malicious_api_imported
+          - ratio_malicious_api_imported
+        temperature:  0.0
+        top_p:        1.0
+        n_ctx:        2048
+        n_threads:    4
+        max_tokens:   64
+
+  LLM-Ablation-3-Stats-Compact:
+    base:        !!python/name:pbox.core.model.algorithm.llm.LLMClassifier
+    description: "Ablation 3 — entropy / compact byte-distribution stats only (flat)"
+    multiclass:  false
+    preprocessors: []
+    parameters:
+      static:
+        model_file:   mistral-7b-instruct-v0.2.Q4_K_M.gguf
+        model_repo:   TheBloke/Mistral-7B-Instruct-v0.2-GGUF
+        prompt_file:  zero_shot_verbalized_probability_pbox.txt
+        representation_style: flat
+        few_shot_mode: false
+        few_shot_count: 0
+        trace_outputs: false
+        trace_dir: /home/user/.packing-box/cache/llm-traces
+        parse_policy: strict_unknown
+        on_backend_error: unknown
+        feature_names:
+          - entropy
+          - entropy_code_section
+          - entropy_data_section
+          - entropy_pe_header
+          - entropy_resource_section
+          - entropy_section_with_ep
+          - is_entropy_greater_than_6.801
+        temperature:  0.0
+        top_p:        1.0
+        n_ctx:        2048
+        n_threads:    4
+        max_tokens:   64
+
+  LLM-Ablation-4-Strings-Summary:
+    base:        !!python/name:pbox.core.model.algorithm.llm.LLMClassifier
+    description: "Ablation 4 — printable-string aggregates only (strings_summary)"
+    multiclass:  false
+    preprocessors: []
+    parameters:
+      static:
+        model_file:   mistral-7b-instruct-v0.2.Q4_K_M.gguf
+        model_repo:   TheBloke/Mistral-7B-Instruct-v0.2-GGUF
+        prompt_file:  zero_shot_verbalized_probability_pbox.txt
+        representation_style: strings_summary
+        few_shot_mode: false
+        few_shot_count: 0
+        trace_outputs: false
+        trace_dir: /home/user/.packing-box/cache/llm-traces
+        parse_policy: strict_unknown
+        on_backend_error: unknown
+        feature_names:
+          - number_strings
+          - number_urls
+          - average_string_length
+          - max_string_length
+        temperature:  0.0
+        top_p:        1.0
+        n_ctx:        2048
+        n_threads:    4
+        max_tokens:   64
+
+  LLM-Ablation-5-EP-Byte-Window:
+    base:        !!python/name:pbox.core.model.algorithm.llm.LLMClassifier
+    description: "Ablation 5 — 64 raw bytes at EP (flat); not full disassembly"
+    multiclass:  false
+    preprocessors: []
+    parameters:
+      static:
+        model_file:   mistral-7b-instruct-v0.2.Q4_K_M.gguf
+        model_repo:   TheBloke/Mistral-7B-Instruct-v0.2-GGUF
+        prompt_file:  zero_shot_verbalized_probability_pbox.txt
+        representation_style: flat
+        few_shot_mode: false
+        few_shot_count: 0
+        trace_outputs: false
+        trace_dir: /home/user/.packing-box/cache/llm-traces
+        parse_policy: strict_unknown
+        on_backend_error: unknown
+        feature_names:
+          - byte_0_after_ep
+          - byte_1_after_ep
+          - byte_2_after_ep
+          - byte_3_after_ep
+          - byte_4_after_ep
+          - byte_5_after_ep
+          - byte_6_after_ep
+          - byte_7_after_ep
+          - byte_8_after_ep
+          - byte_9_after_ep
+          - byte_10_after_ep
+          - byte_11_after_ep
+          - byte_12_after_ep
+          - byte_13_after_ep
+          - byte_14_after_ep
+          - byte_15_after_ep
+          - byte_16_after_ep
+          - byte_17_after_ep
+          - byte_18_after_ep
+          - byte_19_after_ep
+          - byte_20_after_ep
+          - byte_21_after_ep
+          - byte_22_after_ep
+          - byte_23_after_ep
+          - byte_24_after_ep
+          - byte_25_after_ep
+          - byte_26_after_ep
+          - byte_27_after_ep
+          - byte_28_after_ep
+          - byte_29_after_ep
+          - byte_30_after_ep
+          - byte_31_after_ep
+          - byte_32_after_ep
+          - byte_33_after_ep
+          - byte_34_after_ep
+          - byte_35_after_ep
+          - byte_36_after_ep
+          - byte_37_after_ep
+          - byte_38_after_ep
+          - byte_39_after_ep
+          - byte_40_after_ep
+          - byte_41_after_ep
+          - byte_42_after_ep
+          - byte_43_after_ep
+          - byte_44_after_ep
+          - byte_45_after_ep
+          - byte_46_after_ep
+          - byte_47_after_ep
+          - byte_48_after_ep
+          - byte_49_after_ep
+          - byte_50_after_ep
+          - byte_51_after_ep
+          - byte_52_after_ep
+          - byte_53_after_ep
+          - byte_54_after_ep
+          - byte_55_after_ep
+          - byte_56_after_ep
+          - byte_57_after_ep
+          - byte_58_after_ep
+          - byte_59_after_ep
+          - byte_60_after_ep
+          - byte_61_after_ep
+          - byte_62_after_ep
+          - byte_63_after_ep
+        temperature:  0.0
+        top_p:        1.0
+        n_ctx:        2048
+        n_threads:    4
+        max_tokens:   64
+
+  LLM-ZeroShot-Grid:
+    base:        !!python/name:pbox.core.model.algorithm.llm.LLMClassifier
+    description: "Exp 1 - Zero-shot LLM: grid search over prompt strategies"
+    multiclass:  false
+    parameters:
+      static:
+        model_file:   mistral-7b-instruct-v0.2.Q4_K_M.gguf
+        model_repo:   TheBloke/Mistral-7B-Instruct-v0.2-GGUF
+        representation_style: flat
+        few_shot_mode: false
+        few_shot_count: 0
+        feature_names:
+          - entropy
+          - entropy_code_section
+          - entropy_section_with_ep
+        n_ctx:        2048
+        n_threads:    4
+        max_tokens:   64
+      cv:
+        prompt_file:
+          - zero_shot_direct_verdict.txt
+          - zero_shot_checklist.txt
+          - zero_shot_plan_decide.txt
+          - zero_shot_short_justification.txt
+  LLM-Checklist-ZSvFS:
+    base:        !!python/name:pbox.core.model.algorithm.llm.LLMClassifier
+    description: "Checklist prompt — zero-shot vs few-shot grid (K=2,4,8)"
+    multiclass:  false
+    parameters:
+      static:
+        model_file:   mistral-7b-instruct-v0.2.Q4_K_M.gguf
+        model_repo:   TheBloke/Mistral-7B-Instruct-v0.2-GGUF
+        prompt_file:  few_shot_checklist.txt
+        representation_style: flat
+        feature_names:
+          - entropy
+          - entropy_code_section
+          - entropy_section_with_ep
+        n_ctx:        3072
+        n_threads:    4
+        max_tokens:   512
+      cv:
+        few_shot_mode:  [false, true]
+        few_shot_count: [2, 4, 8]
+
+  LLM-FewShot-Grid:
+    base:        !!python/name:pbox.core.model.algorithm.llm.LLMClassifier
+    description: "Exp 2 - Few-shot LLM: grid search over number of examples (best prompt fixed)"
+    multiclass:  false
+    parameters:
+      static:
+        model_file:   mistral-7b-instruct-v0.2.Q4_K_M.gguf
+        model_repo:   TheBloke/Mistral-7B-Instruct-v0.2-GGUF
+        prompt_file:  few_shot_binary.txt
+        representation_style: flat
+        few_shot_mode: true
+        feature_names:
+          - entropy
+          - entropy_code_section
+          - entropy_section_with_ep
+        n_ctx:        2048
+        n_threads:    4
+        max_tokens:   64
+      cv:
+        few_shot_count: [2, 4, 6, 8]
 
 Unsupervised:
   defaults:
