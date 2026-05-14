@@ -127,6 +127,19 @@ class LLMBackend:
         return {"text": choice["text"].strip(), "top_logprobs": top_logprobs}
 
     # ------------------------------------------------------------------
+    # Pickle support
+    # ------------------------------------------------------------------
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state["_llm"] = None
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._llm = None
+
+    # ------------------------------------------------------------------
     # Model management
     # ------------------------------------------------------------------
 
