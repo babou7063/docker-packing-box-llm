@@ -283,7 +283,7 @@ LLM:
         representation_style: structured_semantic_pe
 
         few_shot_count: 0
-        trace_outputs: false
+        trace_outputs: true
         trace_dir: /home/user/.packing-box/cache/llm-traces
         parse_policy: strict_unknown
         on_backend_error: unknown
@@ -515,7 +515,7 @@ LLM:
         representation_style: flat
 
         few_shot_count: 0
-        trace_outputs: false
+        trace_outputs: true
         trace_dir: /home/user/.packing-box/cache/llm-traces
         parse_policy: strict_unknown
         on_backend_error: unknown
@@ -808,7 +808,7 @@ LLM:
         representation_style: flat
 
         few_shot_count: 2
-        trace_outputs: false
+        trace_outputs: true
         trace_dir: /home/user/.packing-box/cache/llm-traces
         parse_policy: p_packed_fallback
         on_backend_error: unknown
@@ -880,7 +880,7 @@ LLM:
         representation_style: flat
         few_shot_mode: true
         few_shot_count: 4
-        trace_outputs: false
+        trace_outputs: true
         trace_dir: /home/user/.packing-box/cache/llm-traces
         parse_policy: p_packed_fallback
         on_backend_error: unknown
@@ -977,7 +977,7 @@ LLM:
         representation_style: structured_semantic_pe
 
         few_shot_count: 2
-        trace_outputs: false
+        trace_outputs: true
         trace_dir: /home/user/.packing-box/cache/llm-traces
         parse_policy: p_packed_fallback
         on_backend_error: unknown
@@ -1001,7 +1001,7 @@ LLM:
         representation_style: structured_semantic_pe
 
         few_shot_count: 4
-        trace_outputs: false
+        trace_outputs: true
         trace_dir: /home/user/.packing-box/cache/llm-traces
         parse_policy: p_packed_fallback
         on_backend_error: unknown
