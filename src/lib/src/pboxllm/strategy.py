@@ -176,6 +176,20 @@ class PromptStrategy:
             return meta
         return meta
 
+    def validate_template(self, few_shot_count):
+        """Raise ValueError if the template is incompatible with the few-shot config.
+
+        Call this from ``LLMClassifier.fit`` so template/mode mismatches surface
+        before any inference runs.
+        """
+        template = self._load_template()
+        has_ph = "{few_shot_examples}" in template
+        if few_shot_count and not has_ph:
+            raise ValueError(
+                f"[pboxllm] few_shot_count={few_shot_count} but template "
+                f"'{self.prompt_file}' has no {{few_shot_examples}} placeholder."
+            )
+
     # ------------------------------------------------------------------
     # Template loading
     # ------------------------------------------------------------------
@@ -196,36 +210,61 @@ class PromptStrategy:
     def _render_template(self, features_text, few_shot_examples):
         template = self._load_template()
         mapping = {"features": features_text}
-        if "{few_shot_examples}" in template:
+        has_ph = "{few_shot_examples}" in template
+        if has_ph:
             mapping["few_shot_examples"] = self._format_few_shot_examples(few_shot_examples)
+            return template.format(**mapping)
+        if few_shot_examples:
+            raise ValueError(
+                f"[pboxllm] few_shot_count > 0 but template '{self.prompt_file}' "
+                "has no {few_shot_examples} placeholder. "
+                "Add the placeholder to the template where you want demo examples to appear, "
+                "or call validate_template() during fit to catch this early."
+            )
         return template.format(**mapping)
 
-    def _format_few_shot_examples(self, few_shot_examples):
+    def _few_shot_body(self, few_shot_examples):
+        """Return the numbered example block only (no surrounding English header)."""
         if not few_shot_examples:
             return ""
         lines = []
         for i, example in enumerate(few_shot_examples, start=1):
+            feat_txt = example.get("features_text", "")
+            if not feat_txt:
+                raise ValueError(
+                    f"[pboxllm] FewShotExample at index {i - 1} has an empty "
+                    "'features_text'. This would inject a blank example into the prompt."
+                )
             label = self._normalize_label(example.get("label", "unknown"))
-            features_text = example.get("features_text", "")
             lines.append(
                 "Example {i}:\nFeatures:\n{features}\nLabel: {label}".format(
                     i=i,
-                    features=features_text,
+                    features=feat_txt,
                     label=label,
                 )
             )
-        block = "\n\n".join(lines)
-        return "\nHere are some examples to guide your reasoning:\n\n{}\n".format(block)
+        return "\n\n".join(lines)
 
-    @staticmethod
-    def _normalize_label(label):
+    def _format_few_shot_examples(self, few_shot_examples):
+        body = self._few_shot_body(few_shot_examples)
+        if not body:
+            return ""
+        return "\nHere are some examples to guide your reasoning:\n\n{}\n".format(body)
+
+    def _normalize_label(self, label):
+        """Map training / sklearn-style labels to the prompt wording configured on this instance.
+
+        Uses ``self.packed_label`` / ``self.not_packed_label`` so that demo
+        examples in few-shot prompts use the same label vocabulary as the
+        response instruction (critical for neutral-label configs such as A/B).
+        """
         if label in [1, "1", True]:
-            return "packed"
+            return self.packed_label
         if label in [0, "0", False]:
-            return "not-packed"
+            return self.not_packed_label
         text = str(label).strip().lower()
-        if text in ["packed", "not-packed", "not packed"]:
-            return text.replace(" ", "-")
+        if text == self.packed_label or text == self.not_packed_label:
+            return text
         return "unknown"
 
     def _bootstrap_default_prompt(self):

@@ -5,7 +5,7 @@ from pathlib import Path
 
 __all__ = ["LLMBackend"]
 
-_MODEL_CACHE_DIR = Path(os.path.expanduser("~/.cache/pboxllm/models"))
+_MODEL_CACHE_DIR = Path(os.path.expanduser("~/.packing-box/cache/llm-models"))
 
 
 class LLMBackend:

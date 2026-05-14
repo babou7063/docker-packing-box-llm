@@ -1,7 +1,13 @@
 # -*- coding: UTF-8 -*-
 
-
 __all__ = ["FeatureFormatter"]
+
+_BULLET_HEADERS = {
+    "compact_pe_structural": "COMPACT_PE_BUNDLE",
+    "strings_summary": "STRINGS_SUMMARY",
+}
+
+_VALID_STYLES = {"flat", "structured_semantic_pe", "compact_pe_structural", "strings_summary"}
 
 
 def _load_descriptions():
@@ -37,11 +43,23 @@ class FeatureFormatter:
     """
 
     def __init__(self, feature_names, representation_style="flat"):
+        if representation_style not in _VALID_STYLES:
+            raise ValueError(
+                f"[FeatureFormatter] Unknown representation_style '{representation_style}'. "
+                f"Valid styles: {sorted(_VALID_STYLES)}"
+            )
         self.feature_names = feature_names
         self.representation_style = representation_style
         self._feature_index = {name: idx for idx, name in enumerate(feature_names)}
         self._descriptions = {}
         self._descriptions_loaded = False
+        if representation_style in _BULLET_HEADERS:
+            _header = _BULLET_HEADERS[representation_style]
+            self._render = lambda row: self._format_bullet_list(row, _header)
+        elif representation_style == "structured_semantic_pe":
+            self._render = self._format_structured_semantic_pe
+        else:
+            self._render = self._format_flat
 
     def format(self, row):
         """Format a single feature row as a text block.
@@ -59,14 +77,7 @@ class FeatureFormatter:
         if not self._descriptions_loaded:
             self._descriptions = _load_descriptions()
             self._descriptions_loaded = True
-
-        if self.representation_style == "structured_semantic_pe":
-            return self._format_structured_semantic_pe(row)
-        if self.representation_style == "compact_pe_structural":
-            return self._format_compact_pe_structural(row)
-        if self.representation_style == "strings_summary":
-            return self._format_strings_summary(row)
-        return self._format_flat(row)
+        return self._render(row)
 
     def _format_flat(self, row):
         lines = []
@@ -106,16 +117,8 @@ class FeatureFormatter:
         lines.append("}")
         return "\n".join(lines)
 
-    def _format_compact_pe_structural(self, row):
-        lines = ["COMPACT_PE_BUNDLE"]
-        for name in self.feature_names:
-            label = self._descriptions.get(name, name.replace("_", " "))
-            value = self._format_value(self._get_row_value(row, name))
-            lines.append(f"- {label}: {value}")
-        return "\n".join(lines)
-
-    def _format_strings_summary(self, row):
-        lines = ["STRINGS_SUMMARY"]
+    def _format_bullet_list(self, row, header):
+        lines = [header]
         for name in self.feature_names:
             label = self._descriptions.get(name, name.replace("_", " "))
             value = self._format_value(self._get_row_value(row, name))
